@@ -1,0 +1,11 @@
+# LocalStack: a free AWS simulator. EC2 only, on http://localhost:4566
+services:
+  localstack:
+    image: localstack/localstack:4.4
+    ports:
+      - "127.0.0.1:4566:4566"
+    environment:
+      - SERVICES=ec2
+      - AWS_DEFAULT_REGION=us-east-1
+    volumes:
+      - ./init/ready.d:/etc/localstack/init/ready.d:ro
