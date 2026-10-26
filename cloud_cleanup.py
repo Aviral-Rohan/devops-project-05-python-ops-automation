@@ -10,11 +10,16 @@ from botocore.exceptions import BotoCoreError, ClientError, EndpointConnectionEr
 
 log = logging.getLogger("cloud_cleanup")
 
+PROTECT_TAG = "do-not-delete"     # OPS-105: any resource with do-not-delete=true is never touched
 REQUIRED_TAG = "Owner"
 
 
 def tags_of(resource):
     return {t["Key"]: t["Value"] for t in resource.get("Tags", [])}
+
+
+def is_protected(tags):
+    return tags.get(PROTECT_TAG, "").strip().lower() in ("true", "yes", "1")
 
 
 def unattached_volumes(ec2):
@@ -56,6 +61,9 @@ def build_report(ec2, snapshot_days, account):
         issues = (["stopped"] if i["State"]["Name"] == "stopped" else []) + ([f"no {REQUIRED_TAG}"] if REQUIRED_TAG not in t else [])
         if issues:
             findings.append(finding("instance", i["InstanceId"], t, i["InstanceType"], issues, "review"))
+    for f in findings:
+        if is_protected(f["tags"]):
+            f["action"] = "protected"
     return findings
 
 
@@ -68,8 +76,9 @@ def print_report(findings):
         print(f"{f['type']:<9} {f['id']:<22} {f['name'][:26]:<27} {f['owner'][:9]:<10} {f['detail']:<11} "
               f"{', '.join(f['issues']):<26} {f['action']}")
     deletable = sum(1 for f in findings if f["action"] == "delete")
-    print(f"\n{len(findings)} finding(s): {deletable} to delete, "
-          f"{len(findings) - deletable} for review (instances are never deleted by this tool)")
+    protected = sum(1 for f in findings if f["action"] == "protected")
+    print(f"\n{len(findings)} finding(s): {deletable} to delete, {protected} protected, "
+          f"{len(findings) - deletable - protected} for review (instances are never deleted by this tool)")
 
 
 def apply(ec2, findings):
