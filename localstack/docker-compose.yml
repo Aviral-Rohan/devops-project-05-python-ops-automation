@@ -5,7 +5,7 @@ services:
     ports:
       - "127.0.0.1:4566:4566"
     environment:
-      - SERVICES=ec2
+      - SERVICES=ec2,sts
       - AWS_DEFAULT_REGION=us-east-1
     volumes:
       - ./init/ready.d:/etc/localstack/init/ready.d:ro
